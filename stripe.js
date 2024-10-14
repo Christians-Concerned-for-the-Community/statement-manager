@@ -322,6 +322,14 @@ function stripe_getBalanceFromReport_(id) {
      We want the "net" value for the "total" category ("-99.85").
    */
   const table = Utilities.parseCsv(csv, ',');
+  
+  // If the table is completely empty (only header row), report that
+  // as a zero balance.
+  if (table.length === 1)  {
+    return 0;
+  }
+
+  // Otherwise, read the balance from the appropriate cell in the table.
   let colCategory = 0;              // default to first column
   let colNet = table[0].length - 1; // default to last column
   for (const [i, heading] of table[0].entries()) {
