@@ -52,6 +52,29 @@ function doStripeSinceLast() {
 }
 
 
+/* doManualReport()
+ *
+ * Lets you manually trigger a year-long report for a hardcoded target and
+ * year.
+ * 
+ * Note that the end date is EXCLUSIVE with 1-second resolution, in line
+ * with how OFX does things.
+ */
+function doManualReport() {
+  const target = 'PayPal';
+  //const target = 'Stripe';
+
+  // Start and end times are midnight in EST, expressed as a UTC timestamp.
+  //const year = 2024;
+  //const startDate = year + '-01-01T05:00:00Z';
+  //const endDate = (year + 1) + '-01-01T05:00:00Z';
+  const startDate = '2025-11-25T15:00:00Z';
+  const endDate = '2025-11-25T17:00:00Z';
+
+  main_doReport_(target, startDate, endDate)
+}
+
+
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
  * Helper functions.
