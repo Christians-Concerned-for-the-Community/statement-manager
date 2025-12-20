@@ -103,7 +103,45 @@ function paypal_makeReportOfx(startDate, endDate=Date.now(), currency='USD', mod
     currency
   );
 
+  //Process txns to merge partner fees into their related transaction.
+  //  -- put all non-partner-fee transactions into a map.
+  //  -- put all partner-fee transactions into a separate list.
+  const txnMap = new Map();
+  const partnerTxns = [];
   for (const txn of res.txns) {
+    const ti = txn.transaction_info;
+    if (ti.transaction_event_code.startsWith('T0113')) {
+      partnerTxns.push(txn);
+    } else {
+      txnMap.set(ti.transaction_id, txn);
+    }
+  }
+  //  -- loop over the list of partner-fee transactions.
+  for (const txn of partnerTxns) {
+    const ti = txn.transaction_info;
+    const amountExtraFee = ti.transaction_amount ? Number(ti.transaction_amount.value) : 0;
+
+    const refTxn = ti.paypal_reference_id ? txnMap.get(ti.paypal_reference_id) : undefined;
+    if (refTxn) {
+      // Update the partner fee to the referenced transaction.
+      const refti = refTxn.transaction_info;
+      if (refti.fee_amount && refti.fee_amount.value) {
+        // If the referenced transaction already had a fee, add the partner fee to that value.
+        refti.fee_amount.value = "" + (Number(ti.transaction_amount.value) + Number(refti.fee_amount.value));
+      } else {
+        // Otherwise, just copy the partner fee over directly.
+        refti.fee_amount = {
+          "currency_code": ti.transaction_amount.currency_code,
+          "value": ti.transaction_amount.value
+        };
+      }
+    } else {
+      // If this partner fee doesn't reference another existing transaction, just add it to the map so it will be processed on its own below.
+      txnMap.set(ti.transaction_id, txn);
+    }
+  }
+
+  for (const txn of txnMap.values()) {
     const ti = txn.transaction_info;
     const pi = txn.payer_info;
 
@@ -253,7 +291,7 @@ function paypal_getTransactions_(startDate, endDate, currency='USD') {
         out.endDate = Math.max(
           out.endDate, new Date(resp.json.end_date).getTime());
         
-        if (resp.json.transaction_details.length > 0) {
+        if (resp.json.transaction_details && resp.json.transaction_details.length > 0) {
           results.push(resp.json.transaction_details);
         }
       } else {
@@ -342,6 +380,7 @@ function paypal_ofxTxnTypeName_(code, amount) {
   switch(code) {
     case 'T0002': return 'recurring payment';
     case 'T0013': return 'donation payment';
+    case 'T0113': return 'partner fee';
   }
 
   const group = code.substring(1,3);
@@ -354,3 +393,47 @@ function paypal_ofxTxnTypeName_(code, amount) {
 
   return (amount < 0.0)? 'account debit' : 'account credit';
 }
+
+
+
+/* -------- */
+/*
+   Hardcoded function to let you manually retrive yearly JSON transaction data
+   and email it to yourself.
+   (Used for testing)
+ */
+function test() {
+  res = paypal_getTransactions_('2020-01-01T05:00:00.000Z','2021-01-01T04:59:59.000Z');
+  blob = Utilities.newBlob(JSON.stringify(res.txns,null,2), 'application/json', 'paypal_txns_2020.json');
+  MailApp.sendEmail({
+    to: 'treasurer@cccgainesville.org',
+    subject: `[Google Bot] PayPal Data Export - 2020`,
+    name: 'Statement Manager',
+    noReply: true,
+    attachments: [
+      blob
+    ],
+    htmlBody: `
+<html>
+<head>
+<style>
+  body {
+    font-size: 120%;
+  }
+</style>
+</head>
+<body>
+<h2>PayPal Transaction Data from 2020</h2>
+
+<p>Please find the data attached to this email in JSON format.
+
+<br>
+<hr/>
+<p style="font-size: 100%">This email was sent automatically by Google, from the
+<a href="https://script.google.com/home/projects/${ScriptApp.getScriptId()}">
+Statement Manager</a> Apps Script.
+</body>
+</html>
+`
+  });
+  }
