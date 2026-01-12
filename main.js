@@ -74,12 +74,18 @@ function doManualReport() {
   main_doReport_(target, startDate, endDate)
 }
 
+function doPaypalLastYear() {
+  main_doLastYear_("PayPal");
+}
+
+function doStripeLastYear() {
+  main_doLastYear_("Stripe");
+}
 
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
  * Helper functions.
  */
-
 function main_doSinceLast_(targetPretty) {
   const target = targetPretty.toLowerCase();
 
@@ -122,6 +128,22 @@ function main_doSinceLast_(targetPretty) {
   if (res) {
     ps.setProperty(target + SINCE_PREV_START_KEY, new Date(res.endDate));
   }
+}
+
+// Does a report covering the entire calendar year preceding the current year.
+//   E.g., if run in 2026, will return a report covering all of 2025.
+function main_doLastYear_(targetPretty) {
+  const target = targetPretty.toLowerCase();
+  
+  const year = new Date(Date.now()).getFullYear();
+  
+  const startDate = (year - 1) + '-01-01T05:00:00Z';
+  const endDate   = (year)     + '-01-01T05:00:00Z';
+
+  // Example: if the current year is '2026', then our range is:
+  // 01/01/2025 12am eastern -> 01/01/2026 12am eastern (exclusive end)
+  console.log(`Running report: ${targetPretty} ${startDate} ${endDate}`);
+  main_doReport_(target, startDate, endDate)
 }
 
 
